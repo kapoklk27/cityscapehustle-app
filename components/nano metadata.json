@@ -1,0 +1,15 @@
+{
+  "name": "CityScape Hustle Token",
+  "symbol": "CSHT",
+  "description": "Official token of the CityScape Hustle metaverse ecosystem.",
+  "image": "https://PLACEHOLDER/CSHT.png",
+  "attributes": [],
+  "properties": {
+    "files": [
+      {
+        "uri": "https://PLACEHOLDER/CSHT.png",
+        "type": "image/png"
+      }
+    ]
+  }
+}

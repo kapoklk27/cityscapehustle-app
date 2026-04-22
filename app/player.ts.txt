@@ -1,0 +1,29 @@
+export type PlayerData = {
+  id: string;
+  name: string;
+  money: number;
+  inventory: string[];
+};
+
+export function createPlayer(): PlayerData {
+  const playerId = crypto.randomUUID();
+
+  const playerData: PlayerData = {
+    id: playerId,
+    name: "Player_" + playerId.substring(0, 5),
+    money: 1000,
+    inventory: [],
+  };
+
+  localStorage.setItem("player", JSON.stringify(playerData));
+  return playerData;
+}
+
+export function getPlayer(): PlayerData | null {
+  const data = localStorage.getItem("player");
+  return data ? JSON.parse(data) : null;
+}
+
+export function savePlayer(player: PlayerData): void {
+  localStorage.setItem("player", JSON.stringify(player));
+}
