@@ -630,7 +630,7 @@ export default function Home() {
                   onClick={() => setShowLanding(false)}
                   className="rounded-2xl bg-cyan-500 px-8 py-4 text-lg font-black text-black shadow-2xl shadow-cyan-500/30 transition hover:bg-cyan-300"
                 >
-                  Enter Marketplace
+                  Start Earning with CSHT
                 </button>
 
                 <button
@@ -668,7 +668,7 @@ export default function Home() {
 
               <div className="rounded-3xl border border-purple-500/40 bg-zinc-950/60 backdrop-blur-xl p-6 shadow-2xl shadow-purple-950/20">
                 <div className="text-xs font-bold uppercase tracking-[0.35em] text-purple-400">
-                  Coming Next
+                  Expanding Now
                 </div>
                 <p className="mt-4 text-lg font-semibold text-white">
                   NFT ownership, marketplace trading, business system, and
