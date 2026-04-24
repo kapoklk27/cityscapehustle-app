@@ -212,6 +212,7 @@ export default function Home() {
   const [walletAddress, setWalletAddress] = useState<string>("");
   const [isWalletConnected, setIsWalletConnected] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [showLanding, setShowLanding] = useState(true);
 
   const [activeView, setActiveView] = useState<
     "lootbox" | "marketplace" | "store" | "inventory" | "cart" | "about"
@@ -223,6 +224,7 @@ export default function Home() {
         "lootbox" | "marketplace" | "store" | "inventory" | "cart" | "about"
       >;
       setActiveView(customEvent.detail);
+      setShowLanding(false);
     };
 
     window.addEventListener("changeView", handler);
@@ -443,6 +445,31 @@ export default function Home() {
 
       console.log("Pago exitoso TX:", signature);
 
+      const verifyResponse = await fetch("/api/verify-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify({
+          signature,
+          wallet: walletAddress,
+          amount: cshtPrice,
+          productId: product.id,
+          productName: product.name,
+        }),
+      });
+
+      const verifyData = await verifyResponse.json();
+
+      if (!verifyResponse.ok || !verifyData?.success || !verifyData?.verified) {
+        console.error("Pago no verificado:", verifyData);
+        alert("Pago no verificado. No se entregó la recompensa.");
+        return;
+      }
+
+      console.log("✅ Pago verificado en blockchain:", verifyData);
+
       const rarity = rollRarity(product.boxType);
       const reward = getRandomReward(rewardPools[product.boxType], rarity);
 
@@ -532,11 +559,115 @@ export default function Home() {
     setIsWalletConnected(false);
     setIsProcessingPayment(false);
     setActiveView("lootbox");
+    setShowLanding(true);
+  }
+
+  if (showLanding) {
+    return (
+      <main className="min-h-screen overflow-hidden bg-black text-white">
+        <section className="relative min-h-screen">
+          <div className="absolute inset-0">
+            <video
+              src="/videos/cityscape-intro.mp4"
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="h-full w-full object-cover opacity-40"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/70 to-black" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#7c3aed44,transparent_35%),radial-gradient(circle_at_bottom,#06b6d444,transparent_35%)]" />
+          </div>
+
+          <div className="relative z-10 mx-auto flex min-h-screen max-w-[1320px] flex-col justify-center px-6 py-12">
+            <div className="max-w-4xl">
+              <div className="mb-5 inline-flex rounded-full border border-cyan-500/60 bg-cyan-950/30 px-4 py-2 text-xs font-bold uppercase tracking-[0.35em] text-cyan-300">
+                Web3 Open World Economy
+              </div>
+
+              <h1 className="text-5xl font-black tracking-tight text-white md:text-7xl">
+                City Scape Hustle
+              </h1>
+
+              <p className="mt-6 max-w-3xl text-lg leading-8 text-zinc-300 md:text-2xl">
+                A player-owned digital economy powered by CSHT, lootboxes,
+                wallet identity, real inventory, and a future Unreal Engine
+                open-world experience.
+              </p>
+
+              <div className="mt-8 flex flex-wrap gap-4">
+                <button
+                  onClick={() => setShowLanding(false)}
+                  className="rounded-2xl bg-cyan-500 px-8 py-4 text-lg font-black text-black shadow-2xl shadow-cyan-500/30 transition hover:bg-cyan-300"
+                >
+                  Enter Marketplace
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowLanding(false);
+                    setActiveView("about");
+                  }}
+                  className="rounded-2xl border border-purple-500 px-8 py-4 text-lg font-bold text-purple-200 transition hover:bg-purple-950"
+                >
+                  About Project
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-12 grid gap-5 md:grid-cols-3">
+              <div className="rounded-3xl border border-green-500/40 bg-zinc-950/80 p-6 shadow-2xl shadow-green-950/20">
+                <div className="text-xs font-bold uppercase tracking-[0.35em] text-green-400">
+                  Live Now
+                </div>
+                <p className="mt-4 text-lg font-semibold text-white">
+                  CSHT payments, wallet login, lootboxes, rewards, inventory,
+                  and backend storage.
+                </p>
+              </div>
+
+              <div className="rounded-3xl border border-cyan-500/40 bg-zinc-950/80 p-6 shadow-2xl shadow-cyan-950/20">
+                <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-400">
+                  Building Now
+                </div>
+                <p className="mt-4 text-lg font-semibold text-white">
+                  Unreal Engine connection, in-game inventory, player-owned
+                  vehicles and properties.
+                </p>
+              </div>
+
+              <div className="rounded-3xl border border-purple-500/40 bg-zinc-950/80 p-6 shadow-2xl shadow-purple-950/20">
+                <div className="text-xs font-bold uppercase tracking-[0.35em] text-purple-400">
+                  Coming Next
+                </div>
+                <p className="mt-4 text-lg font-semibold text-white">
+                  NFT ownership, marketplace trading, business system, and
+                  open-world economy.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-8 text-sm text-zinc-500">
+              Video file path: <span className="text-zinc-300">/public/videos/cityscape-intro.mp4</span>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
   }
 
   return (
     <main className="min-h-screen bg-black p-6 text-white">
       <div className="mx-auto max-w-[1320px]">
+        <div className="mb-5">
+          <button
+            onClick={() => setShowLanding(true)}
+            className="rounded-xl border border-cyan-700 px-4 py-2 text-sm font-bold text-cyan-300 hover:bg-cyan-950"
+          >
+            ← Main Page
+          </button>
+        </div>
+
         <Header
           cartCount={cartCount}
           inventoryCount={totalInventory}
