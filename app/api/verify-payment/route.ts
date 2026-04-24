@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { Connection, PublicKey } from "@solana/web3.js";
+import {
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddress,
+} from "@solana/spl-token";
 import { createClient } from "@supabase/supabase-js";
 
 const RPC_URL =
@@ -22,14 +26,14 @@ export async function POST(req: Request) {
 
     if (!signature || !wallet || !amount) {
       return NextResponse.json(
-        { error: "Missing signature, wallet or amount" },
+        { success: false, error: "Missing signature, wallet or amount" },
         { status: 400 }
       );
     }
 
     if (!TOKEN_MINT || !RECEIVER_WALLET) {
       return NextResponse.json(
-        { error: "Server token config missing" },
+        { success: false, error: "Server token config missing" },
         { status: 500 }
       );
     }
@@ -41,66 +45,85 @@ export async function POST(req: Request) {
       commitment: "confirmed",
     });
 
-    if (!tx) {
+    if (!tx || tx.meta?.err) {
       return NextResponse.json(
-        { error: "Transaction not found" },
+        { success: false, error: "Transaction not confirmed" },
         { status: 400 }
       );
     }
 
-    const mint = TOKEN_MINT;
-    const receiver = RECEIVER_WALLET;
+    const mint = new PublicKey(TOKEN_MINT);
+    const buyer = new PublicKey(wallet);
+    const receiver = new PublicKey(RECEIVER_WALLET);
+
+    const expectedSourceAta = await getAssociatedTokenAddress(
+      mint,
+      buyer,
+      false,
+      TOKEN_PROGRAM_ID
+    );
+
+    const expectedReceiverAta = await getAssociatedTokenAddress(
+      mint,
+      receiver,
+      false,
+      TOKEN_PROGRAM_ID
+    );
+
     const expectedRawAmount = BigInt(
       Math.round(Number(amount) * Math.pow(10, TOKEN_DECIMALS))
     );
 
-    let validReceiver = false;
-    let validMint = false;
-    let validAmount = false;
-    let validOwner = false;
+    let verified = false;
 
     for (const ix of tx.transaction.message.instructions) {
       const parsed = (ix as any)?.parsed;
       if (!parsed) continue;
 
+      const info = parsed.info || {};
+
+      if (parsed.type === "transfer") {
+        const source = String(info.source || "");
+        const destination = String(info.destination || "");
+        const authority = String(info.authority || "");
+        const rawAmount = BigInt(String(info.amount || "0"));
+
+        if (
+          source === expectedSourceAta.toString() &&
+          destination === expectedReceiverAta.toString() &&
+          authority === buyer.toString() &&
+          rawAmount === expectedRawAmount
+        ) {
+          verified = true;
+          break;
+        }
+      }
+
       if (parsed.type === "transferChecked") {
-        const info = parsed.info || {};
+        const source = String(info.source || "");
+        const destination = String(info.destination || "");
+        const authority = String(info.authority || "");
+        const mintFromTx = String(info.mint || "");
+        const rawAmount = BigInt(String(info.tokenAmount?.amount || "0"));
 
-        if (info.mint === mint) {
-          validMint = true;
-        }
-
-        if (info.destinationOwner === receiver || info.destination === receiver) {
-          validReceiver = true;
-        }
-
-        if (info.tokenAmount?.amount) {
-          const raw = BigInt(info.tokenAmount.amount);
-          if (raw === expectedRawAmount) {
-            validAmount = true;
-          }
-        }
-
-        if (info.authority === wallet || info.owner === wallet) {
-          validOwner = true;
+        if (
+          mintFromTx === mint.toString() &&
+          source === expectedSourceAta.toString() &&
+          destination === expectedReceiverAta.toString() &&
+          authority === buyer.toString() &&
+          rawAmount === expectedRawAmount
+        ) {
+          verified = true;
+          break;
         }
       }
     }
 
-    if (!validMint) {
-      return NextResponse.json({ error: "Invalid mint" }, { status: 400 });
-    }
-
-    if (!validReceiver) {
-      return NextResponse.json({ error: "Invalid receiver" }, { status: 400 });
-    }
-
-    if (!validAmount) {
-      return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
-    }
-
-    if (!validOwner) {
-      return NextResponse.json({ error: "Invalid wallet sender" }, { status: 400 });
+    if (!verified) {
+      return NextResponse.json(
+        { success: false, error: "Payment verification failed" },
+        { status: 400 }
+      );
     }
 
     const existing = await supabase
@@ -111,7 +134,7 @@ export async function POST(req: Request) {
 
     if (existing.data) {
       return NextResponse.json(
-        { error: "Transaction already used" },
+        { success: false, error: "Transaction already used" },
         { status: 400 }
       );
     }
@@ -127,7 +150,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("verify-payment error:", error);
     return NextResponse.json(
-      { error: error?.message || "Server error" },
+      { success: false, error: error?.message || "Server error" },
       { status: 500 }
     );
   }
