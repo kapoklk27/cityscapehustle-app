@@ -445,30 +445,60 @@ export default function Home() {
 
       console.log("Pago exitoso TX:", signature);
 
-      const verifyResponse = await fetch("/api/verify-payment", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-        body: JSON.stringify({
-          signature,
-          wallet: walletAddress,
-          amount: cshtPrice,
-          productId: product.id,
-          productName: product.name,
-        }),
-      });
+      let verifyData: any = null;
+      let verifySuccess = false;
+      let lastVerifyError: any = null;
 
-      const verifyData = await verifyResponse.json();
+      for (let attempt = 1; attempt <= 8; attempt++) {
+        try {
+          const verifyResponse = await fetch("/api/verify-payment", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            cache: "no-store",
+            body: JSON.stringify({
+              signature,
+              wallet: walletAddress,
+              amount: cshtPrice,
+              productId: product.id,
+              productName: product.name,
+            }),
+          });
 
-      if (!verifyResponse.ok || !verifyData?.success || !verifyData?.verified) {
-        console.error("Pago no verificado:", verifyData);
-        alert("Pago no verificado. No se entregó la recompensa.");
-        return;
+          const verifyText = await verifyResponse.text();
+
+          try {
+            verifyData = JSON.parse(verifyText);
+          } catch {
+            console.error("verify-payment no devolvió JSON:", verifyText);
+            verifyData = null;
+            lastVerifyError = verifyText;
+          }
+
+          if (verifyResponse.ok && verifyData?.success && verifyData?.verified) {
+            verifySuccess = true;
+            console.log("✅ Pago verificado en blockchain:", verifyData);
+            break;
+          }
+
+          console.warn(`Intento ${attempt} verificación falló:`, verifyData);
+          lastVerifyError = verifyData;
+        } catch (err) {
+          console.error(`Intento ${attempt} error verificando pago:`, err);
+          lastVerifyError = err;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 2500));
       }
 
-      console.log("✅ Pago verificado en blockchain:", verifyData);
+      if (!verifySuccess) {
+        console.error("Pago no verificado después de varios intentos:", lastVerifyError);
+        alert(
+          "El pago fue enviado, pero todavía no se pudo verificar. No intentes comprar otra vez. Revisa consola/Supabase."
+        );
+        return;
+      }
 
       const rarity = rollRarity(product.boxType);
       const reward = getRandomReward(rewardPools[product.boxType], rarity);
@@ -566,26 +596,26 @@ export default function Home() {
     return (
       <main className="min-h-screen overflow-hidden bg-black text-white">
         <section className="relative min-h-screen">
-          <div className="absolute inset-0">
+          <div className="absolute inset-0 flex items-center justify-center">
             <video
               src="/videos/cityscape-intro.mp4"
               autoPlay
               loop
               muted
               playsInline
-              className="h-full w-full object-cover opacity-40"
+              className="h-[82%] w-[82%] object-cover opacity-80 rounded-3xl shadow-2xl shadow-cyan-500/10"
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/70 to-black" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/30 to-black" />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#7c3aed44,transparent_35%),radial-gradient(circle_at_bottom,#06b6d444,transparent_35%)]" />
           </div>
 
-          <div className="relative z-10 mx-auto flex min-h-screen max-w-[1320px] flex-col justify-center px-6 py-12">
-            <div className="max-w-4xl">
+          <div className="relative z-10 mx-auto flex min-h-screen max-w-[1400px] flex-col justify-center px-10 py-16">
+            <div className="max-w-4xl pl-10">
               <div className="mb-5 inline-flex rounded-full border border-cyan-500/60 bg-cyan-950/30 px-4 py-2 text-xs font-bold uppercase tracking-[0.35em] text-cyan-300">
                 Web3 Open World Economy
               </div>
 
-              <h1 className="text-5xl font-black tracking-tight text-white md:text-7xl">
+              <h1 className="text-6xl font-black tracking-tight text-white md:text-8xl">
                 City Scape Hustle
               </h1>
 
@@ -616,7 +646,7 @@ export default function Home() {
             </div>
 
             <div className="mt-12 grid gap-5 md:grid-cols-3">
-              <div className="rounded-3xl border border-green-500/40 bg-zinc-950/80 p-6 shadow-2xl shadow-green-950/20">
+              <div className="rounded-3xl border border-green-500/40 bg-zinc-950/60 backdrop-blur-xl p-6 shadow-2xl shadow-green-950/20">
                 <div className="text-xs font-bold uppercase tracking-[0.35em] text-green-400">
                   Live Now
                 </div>
@@ -626,7 +656,7 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="rounded-3xl border border-cyan-500/40 bg-zinc-950/80 p-6 shadow-2xl shadow-cyan-950/20">
+              <div className="rounded-3xl border border-cyan-500/40 bg-zinc-950/60 backdrop-blur-xl p-6 shadow-2xl shadow-cyan-950/20">
                 <div className="text-xs font-bold uppercase tracking-[0.35em] text-cyan-400">
                   Building Now
                 </div>
@@ -636,7 +666,7 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="rounded-3xl border border-purple-500/40 bg-zinc-950/80 p-6 shadow-2xl shadow-purple-950/20">
+              <div className="rounded-3xl border border-purple-500/40 bg-zinc-950/60 backdrop-blur-xl p-6 shadow-2xl shadow-purple-950/20">
                 <div className="text-xs font-bold uppercase tracking-[0.35em] text-purple-400">
                   Coming Next
                 </div>
@@ -648,7 +678,7 @@ export default function Home() {
             </div>
 
             <div className="mt-8 text-sm text-zinc-500">
-              Video file path: <span className="text-zinc-300">/public/videos/cityscape-intro.mp4</span>
+              
             </div>
           </div>
         </section>
