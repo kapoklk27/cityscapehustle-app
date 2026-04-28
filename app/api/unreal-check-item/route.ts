@@ -9,24 +9,27 @@ const supabaseAdmin = createClient(
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const wallet = searchParams.get("wallet");
 
-    if (!wallet) {
+    const wallet = searchParams.get("wallet");
+    const item = searchParams.get("item");
+
+    if (!wallet || !item) {
       return NextResponse.json(
-        { success: false, error: "Missing wallet" },
+        { success: false, owns: false, error: "Missing wallet or item" },
         { status: 400 }
       );
     }
 
     const { data, error } = await supabaseAdmin
       .from("inventory")
-      .select("*")
+      .select("id, wallet, item_name")
       .eq("wallet", wallet)
-      .order("created_at", { ascending: false });
+      .eq("item_name", item)
+      .limit(1);
 
     if (error) {
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, owns: false, error: error.message },
         { status: 500 }
       );
     }
@@ -34,11 +37,12 @@ export async function GET(req: Request) {
     return NextResponse.json({
       success: true,
       wallet,
-      inventory: data || [],
+      item,
+      owns: !!data && data.length > 0,
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error?.message || "Server error" },
+      { success: false, owns: false, error: error?.message || "Server error" },
       { status: 500 }
     );
   }
